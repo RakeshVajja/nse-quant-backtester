@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NSE Live Candlestick</title>
+    <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        #chart {
+            width: 1000px;
+            height: 500px;
+            background: white;
+        }
+
+        #pattern {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        input {
+            padding: 6px;
+        }
+
+        button {
+            padding: 6px 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>NSE Live Candlestick Pattern Viewer</h2>
+
+<input id="symbol" value="RELIANCE.NS" />
+<button onclick="loadData()">Load</button>
+
+<div id="chart"></div>
+
+<div id="pattern">Current Candle Pattern: --</div>
+
+<script>
+    let chart;
+    let candleSeries;
+
+    function createChartInstance() {
+        const container = document.getElementById("chart");
+        container.innerHTML = "";
+
+        chart = LightweightCharts.createChart(container, {
+            width: 1000,
+            height: 500,
+        });
+
+        candleSeries = chart.addCandlestickSeries({
+            upColor: '#26a69a',
+            downColor: '#ef5350',
+            borderVisible: false,
+            wickUpColor: '#26a69a',
+            wickDownColor: '#ef5350',
+        });
+    }
+
+    async function loadData() {
+
+        console.log("Loading data...");
+
+        const symbol = document.getElementById("symbol").value;
+
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/stock/${symbol}`);
+            const result = await response.json();
+
+            console.log("Backend response received");
+
+            const data = result.data;
+            const patterns = result.patterns;
+
+            
+
+            if (!data || data.length === 0) {
+                alert("No data received");
+                return;
+            }
+
+            createChartInstance();
+
+            const formatted = data.map(d => ({
+                time: Math.floor(new Date(d.datetime).getTime() / 1000),
+                open: d.open,
+                high: d.high,
+                low: d.low,
+                close: d.close
+            }));
+
+            candleSeries.setData(formatted);
+
+            const lastCandleTime = formatted[formatted.length - 1].time;
+
+            let currentPattern = "--";
+
+            if (patterns && patterns.length > 0) {
+                for (let p of patterns) {
+                    console.log("Checking pattern index:", p.index);
+                    const patternCandle = formatted[p.index];
+                    if (patternCandle && patternCandle.time === lastCandleTime) {
+                        currentPattern = p.pattern;
+                        break;
+                    }
+                }
+            }
+
+            console.log("Total candles:", data.length);
+            console.log("Last candle index should be:", data.length - 1);
+            console.log("Patterns array:", patterns);
+
+            document.getElementById("pattern").innerText =
+                "Current Candle Pattern: " + currentPattern;
+
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    }
+
+    // Load on page start
+    window.onload = loadData;
+</script>
+
+</body>
+</html>
